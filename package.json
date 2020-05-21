@@ -10,6 +10,7 @@
   "license": "ISC",
   "devDependencies": {
     "lodash": "^4.17.15",
-    "puppeteer": "^3.1.0"
+    "puppeteer": "^3.1.0",
+    "request": "^2.88.2"
   }
 }

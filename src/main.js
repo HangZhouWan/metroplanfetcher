@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const request = require('request')
 const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
@@ -8,7 +9,7 @@ const http =  require('http');
   const browser = await puppeteer.launch({
     headless: false,
     args: ['--start-maximized'],
-    slowMo: 200,
+    //slowMo: 10,
     defaultViewport:{
         width: 1920,
         height: 1080,
@@ -16,7 +17,7 @@ const http =  require('http');
     }
   });
   const page = await browser.newPage();
-  await page.goto('http://ghzy.hangzhou.gov.cn/col/col1228968050/index.html', {timeout: 300000});
+  await page.goto('http://ghzy.hangzhou.gov.cn/col/col1228968054/index.html', {timeout: 300000});
   page.waitForSelector('span.default_pgTotalPage');
   let totalPageElem = await page.$('span.default_pgTotalPage');
   totalPage = await page.$eval('span.default_pgTotalPage', (element) => {
@@ -28,6 +29,8 @@ const http =  require('http');
     await page.$eval('input.default_pgCurrentPage',input => input.value='' );
     await page.type('input.default_pgCurrentPage', planPage+'');
     await page.keyboard.press('Enter');
+    await page.waitFor(1000);
+    await page.waitFor(() => !document.querySelector('.default_mask'));
     await handlePlanItems();
   }
 
@@ -43,43 +46,22 @@ const http =  require('http');
           );
         await planItem.click();
         let newPage = await newPagePromise;
-        newPage.waitForSelector('.notices-block p a');
-        console.log('waiting for a tag');
+        await newPage.waitFor('.notices-block p a');
         const aTag = await newPage.$('.notices-block p a');
         const imgURL = await newPage.evaluate((element)=> element.href, aTag);
         console.log(imgURL);
-        await updataImg(imgURL, planItemTitle);
+        await downloadImage(imgURL, planItemTitle, (err, data) => { err ? console.log(err) : console.log(`下载成功！图片地址是：${path.resolve(data)}`) })
         await newPage.close();   
         }
       }
   }
-
-  async function saveImage(imgURL){
-    console.log(imgURL);
-    const req = http.request(imgURL, res => {
-      res.pipe(fs.createWriteStream(path.basename()));
-    });
-    req.end();
-  }
-
-async function updataImg(url, name){    
-    http.get(url, (res) => {        
-        let imgData = ''; 
-        res.setTimeout(100000);       
-        res.setEncoding("binary");        
-        res.on('data', (chunk) => {
-            imgData += chunk;
-        })        
-        res.on('end', () => {            
-            fs.writeFile(`./image/${name}.jpg`, imgData, 'binary', (error) => {
-                if (error) {                    
-                            console.log('下载失败');
-                } else {                    
-                            console.log('下载成功！')
-                }
-            })
-        })
+async function downloadImage(src, fileName, callback){
+  console.log(src);
+  request.head(src, (err, res, body) => {
+    if (err) { console.log(err); return }
+    src && request(src).pipe(fs.createWriteStream(`./image/${fileName}.jpg`)).on('close', () => {
+      callback && callback(null, fileName)
     })
+  })
 }
-
 })();
